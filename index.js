@@ -15,7 +15,18 @@ const io = new Server(server, {
 
 io.on("connection", (socket) => {
   console.log("User Connected ", socket.id);
-
+  socket.on("online", ({ userId, userName }) => {
+    socket.join("online");
+    console.log(`${userName} is Online `);
+    const data = {
+      userId,
+      userName,
+    };
+    socket.to("online").emit("onlineCheck", data);
+  });
+  socket.on("friendChanged", (userId) => {
+    socket.to("online").emit("friendChanges", userId);
+  });
   socket.on("joinChatRoom", (roomId) => {
     socket.join(roomId);
     console.log(`user with ID ${socket.id} joined Room ${roomId}`);
