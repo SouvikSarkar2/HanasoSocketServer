@@ -19,30 +19,38 @@ let onlineWithLastSeen = [];
 io.on("connection", (socket) => {
   console.log("User Connected ", socket.id);
 
-  socket.on("offline", (data) => {
-    const updatedOnlineWithLastSeen = onlineWithLastSeen.map((user) => {
-      if (user.userId === data.userId) {
-        return { userId: data.userId, time: data.time };
-      }
-      return user;
-    });
-    console.log(updatedOnlineWithLastSeen);
-    onlineWithLastSeen = updatedOnlineWithLastSeen;
-  });
-
   socket.on("online", ({ userId, userName }) => {
     socket.join("online");
     if (!onlineUsers.includes(userId)) {
       onlineUsers.push(userId);
     }
     console.log(`${userName} is Online `);
-    const data = {
-      userId,
-      userName,
-    };
+
     io.to("online").emit("onlineCheck", onlineUsers);
     io.to("online").emit("offlineCheck", onlineWithLastSeen);
-    console.log(onlineWithLastSeen);
+
+    socket.on("disconnect", () => {
+      let present = false;
+      const updatedOnlineWithLastSeen = onlineWithLastSeen.map((user) => {
+        if (user.userId === userId) {
+          present = true;
+          return { userId: userId, time: Date.now() };
+        }
+        return user;
+      });
+      if (!present) {
+        updatedOnlineWithLastSeen.push({ userId: userId, time: Date.now() });
+      }
+      onlineWithLastSeen = updatedOnlineWithLastSeen;
+      const updatedOnlineUsers = onlineUsers.filter((user) => {
+        return user !== userId;
+      });
+      onlineUsers = updatedOnlineUsers;
+
+      io.to("online").emit("onlineCheck", onlineUsers);
+      io.to("online").emit("offlineCheck", onlineWithLastSeen);
+      console.log(`${userName} is Offline`);
+    });
   });
   socket.on("friendChanged", (userId) => {
     socket.to("online").emit("friendChanges", userId);
@@ -57,15 +65,15 @@ io.on("connection", (socket) => {
   });
   socket.on("sendMessage", (data) => {
     socket.to(data.conversationId).emit("receiveMessage", data);
+    io.to(data.conversationId).emit("receiveLastMessage", data);
     console.log("data :", data);
   });
 
   socket.on("status", (data) => {
-    console.log(data.status);
     socket.to(data.roomId).emit("statusCheck", data);
   });
 
-  socket.on("disconnect", () => {
+  socket.on("disconnect", (data) => {
     console.log("user Disconnected ", socket.id);
   });
 });
