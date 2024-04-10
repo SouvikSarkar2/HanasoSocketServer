@@ -1,8 +1,11 @@
 const express = require("express");
 const app = express();
+const dotenv = require("dotenv");
+dotenv.config();
 const http = require("http");
 const cors = require("cors");
 const { Server } = require("socket.io");
+const Redis = require("ioredis");
 app.use(cors());
 
 const server = http.createServer(app);
@@ -11,6 +14,20 @@ const io = new Server(server, {
   cors: {
     origin: "http://localhost:3000",
   },
+});
+
+const pub = new Redis({
+  host: process.env.REDIS_HOST,
+  port: process.env.REDIS_PORT,
+  username: process.env.REDIS_USERNAME,
+  password: process.env.REDIS_PASSWORD,
+});
+
+const sub = new Redis({
+  host: process.env.REDIS_HOST,
+  port: process.env.REDIS_PORT,
+  username: process.env.REDIS_USERNAME,
+  password: process.env.REDIS_PASSWORD,
 });
 
 let onlineUsers = [];
@@ -55,8 +72,10 @@ io.on("connection", (socket) => {
   socket.on("friendChanged", (userId) => {
     socket.to("online").emit("friendChanges", userId);
   });
-  socket.on("joinChatRoom", (roomId) => {
+  socket.on("joinChatRoom", async (roomId) => {
     socket.join(roomId);
+    await pub.publish(`${roomId}`, JSON.stringify({ roomId }));
+
     console.log(`user with ID ${socket.id} joined Room ${roomId}`);
     socket.to(roomId).emit("statusCheck", { status: "online", roomId });
     socket.on("disconnect", () => {
