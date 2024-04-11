@@ -33,7 +33,6 @@ redis.get("offline", (err, result) => {
     console.log(result);
     onlineWithLastSeen = JSON.parse(result || "[]");
 
-    // Setup socket.io event handling after fetching data
     io.on("connection", (socket) => {
       console.log("User Connected ", socket.id);
 
